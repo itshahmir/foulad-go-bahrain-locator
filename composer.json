@@ -1,0 +1,13 @@
+{
+    "name": "administrator/foulad-go-bahrain-locator",
+    "require-dev": {
+        "proj4php/proj4php": "^2.0"
+    },
+    "authors": [
+        {
+            "name": "trioxsecure",
+            "email": "shahmirkhanutmanzai@gmail.com"
+        }
+    ],
+    "require": {}
+}
