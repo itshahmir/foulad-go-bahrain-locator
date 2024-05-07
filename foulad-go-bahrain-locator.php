@@ -3,7 +3,7 @@
 /**
  * Plugin Name: Foulad Go - Bahrain Locator
  * Plugin Description: Convert Bahrain addresses to Lat/Long coordinates on WooCommerce orders.
- * Author: [Your Name]
+ * Author: Brushed Arrow
  * Version: 1.0.0
  * License: GPLv2 or later
  * License URI: http://www.gnu.org/licenses/gpl-2.0.html
