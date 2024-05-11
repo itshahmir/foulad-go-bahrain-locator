@@ -2,7 +2,7 @@
 
 /**
  * Plugin Name: Foulad Go - Bahrain Locator
- * Plugin Description: Convert Bahrain addresses to Lat/Long coordinates on WooCommerce orders.
+ * Description: Foulad GO - Bahrain is a plugin designed to seamlessly convert physical addresses into precise latitude and longitude coordinates on a map. This tool streamlines the process of pinpointing locations, facilitating navigation, logistics, and various location-based services with accuracy and efficiency.
  * Author: Brushed Arrow
  * Version: 1.0.0
  * License: GPLv2 or later
@@ -17,14 +17,6 @@ define("foulad_go_url", plugin_dir_url(__FILE__));
 
 require plugin_dir_path(__FILE__).'includes/util.php'; // Include Composer autoload
 
-// // Example usage
-// $building = '962';
-// $road = '6016';
-// $block = '760';
-
-// $location = getLocation($building, $road, $block);
-// echo json_encode($location);
-
 // Save location to session
 add_action('woocommerce_checkout_process', 'custom_checkout_save_location_to_session');
 function custom_checkout_save_location_to_session()
@@ -37,9 +29,9 @@ function custom_checkout_save_location_to_session()
     $selected_country = WC()->checkout->get_value('shipping_country');
 
     if (in_array('BH', array_keys($chosen_countries)) || $selected_country == 'BH') {
-        $road = WC()->checkout->get_value('billing_address_1');
-        $block = WC()->checkout->get_value('billing_address_2');
-        $building = WC()->checkout->get_value('billing_city');
+        $road = preg_replace('/[^0-9]/', '', WC()->checkout->get_value('shipping_address_1'));
+        $block = preg_replace('/[^0-9]/', '', WC()->checkout->get_value('shipping_address_2'));
+        $building = preg_replace('/[^0-9]/', '', WC()->checkout->get_value('shipping_postcode'));
 
         if ($road && $block && $building) {
             $location = getLocation($building, $road, $block);
@@ -87,7 +79,8 @@ add_action('woocommerce_checkout_create_order', 'custom_checkout_add_location_to
 add_action('woocommerce_process_shop_order_meta', 'custom_checkout_add_location_to_order_meta', 10, 2); // Hook into admin order update
 function custom_checkout_add_location_to_order_meta($order_id, $posted_data)
 {
-    $order = wc_get_order($order_id);
+    $order = new WC_Order($order_id);
+    error_log('Init Request ' . $order_id);
 
     if (!$order) {
         return; // Exit if order is not valid
@@ -97,9 +90,10 @@ function custom_checkout_add_location_to_order_meta($order_id, $posted_data)
     $selected_country = $order->get_shipping_country();
 
     if (in_array('BH', array_keys($chosen_countries)) || $selected_country == 'BH') {
-        $road = $order->get_billing_address_1();
-        $block = $order->get_billing_address_2();
-        $building = $order->get_billing_city();
+
+        $road = preg_replace('/[^0-9]/', '', $order->get_shipping_address_1());
+        $block = preg_replace('/[^0-9]/', '', $order->get_shipping_address_2());
+        $building = preg_replace('/[^0-9]/', '', $order->get_shipping_postcode());
 
         if ($road && $block && $building) {
             // Assuming getLocation is defined elsewhere
@@ -114,8 +108,29 @@ function custom_checkout_add_location_to_order_meta($order_id, $posted_data)
             }
         } else {
             // Handle the case where address components are missing
-            error_log('Missing address components for order ID: ' . $order_id);
+            error_log('Missing address components for order ID: ' . $order_id. " " . $road. " " . $block." ".$building." ".json_encode($posted_data).$order->get_shipping_country() );
         }
     }
 }
+
+
+
+
+/**
+ * Add custom data to WC API shop order response
+ * Overriding "$object" here with $order so it's easier to access its properties
+ */
+function my_wc_rest_prepare_order($response, $order, $request)
+{
+
+    if (empty($response->data))
+        return $response;
+
+    $order_id = $order->get_id();
+    error_log('Init API Request ' . $order_id);
+
+    custom_checkout_add_location_to_order_meta($order_id, array());
+    return $response;
+}
+add_filter('woocommerce_rest_prepare_shop_order_object', 'my_wc_rest_prepare_order', 10, 3);
 
