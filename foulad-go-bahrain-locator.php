@@ -80,6 +80,66 @@ add_action('woocommerce_process_shop_order_meta', 'custom_checkout_add_location_
 function custom_checkout_add_location_to_order_meta($order_id, $posted_data)
 {
     $order = new WC_Order($order_id);
+    error_log('Init Request ' . $order_id. json_encode($posted_data));
+
+    if (!$order) {
+        return; // Exit if order is not valid
+    }
+    
+    $road = isset($_POST["_shipping_address_1"]) ? $_POST["_shipping_address_1"] : false;
+    $block = isset($_POST["_shipping_address_2"]) ? $_POST["_shipping_address_2"] : false;
+    $building = isset($_POST["_shipping_postcode"]) ? $_POST["_shipping_postcode"] : false;
+
+    if (isset($_POST["_shipping_country"]) && $_POST["_shipping_country"] == "BH") {
+        if ($road && $block && $building) {
+
+            $road = preg_replace('/[^0-9]/', '', $road);
+            $block = preg_replace('/[^0-9]/', '', $block);
+            $building = preg_replace('/[^0-9]/', '', $building);
+
+            // Assuming getLocation is defined elsewhere
+            $location = getLocation($building, $road, $block);
+
+            if ($location) {
+                $order->update_meta_data('FGLocator', json_encode($location));
+                $order->save(); // Save the order to persist changes
+            } else {
+                // Handle the case where location couldn't be retrieved
+                error_log('Failed to get location for order ID: ' . $order_id);
+            }
+        } else {
+            // Handle the case where address components are missing
+            error_log('Missing address components for order ID: ' . $order_id. " " . $road. " " . $block." ".$building." ".json_encode($posted_data).$order->get_shipping_country() );
+        }
+    } else {
+        error_log('shipping address components for order ID: ' . $order_id . " " . $road . " " . $block . " " . $building . " " . json_encode($posted_data) . $order->get_shipping_country());
+    }
+}
+
+
+
+
+/**
+ * Add custom data to WC API shop order response
+ * Overriding "$object" here with $order so it's easier to access its properties
+ */
+function my_wc_rest_prepare_order($response, $order, $request)
+{
+    if (empty($response->data))
+        return $response;
+
+    $order_id = $order->get_id();
+    error_log('Init API Request ' . $order_id);
+
+    custom_checkout_add_location_to_order_meta_api($order_id, array());
+    return $response;
+}
+add_filter('woocommerce_rest_prepare_shop_order_object', 'my_wc_rest_prepare_order', 10, 3);
+
+
+function custom_checkout_add_location_to_order_meta_api($order_id, $posted_data)
+{
+    $order = new WC_Order($order_id);
     error_log('Init Request ' . $order_id);
 
     if (!$order) {
@@ -108,29 +168,7 @@ function custom_checkout_add_location_to_order_meta($order_id, $posted_data)
             }
         } else {
             // Handle the case where address components are missing
-            error_log('Missing address components for order ID: ' . $order_id. " " . $road. " " . $block." ".$building." ".json_encode($posted_data).$order->get_shipping_country() );
+            error_log('Missing address components for order ID: ' . $order_id . " " . $road . " " . $block . " " . $building . " " . json_encode($posted_data) . $order->get_shipping_country());
         }
     }
 }
-
-
-
-
-/**
- * Add custom data to WC API shop order response
- * Overriding "$object" here with $order so it's easier to access its properties
- */
-function my_wc_rest_prepare_order($response, $order, $request)
-{
-
-    if (empty($response->data))
-        return $response;
-
-    $order_id = $order->get_id();
-    error_log('Init API Request ' . $order_id);
-
-    custom_checkout_add_location_to_order_meta($order_id, array());
-    return $response;
-}
-add_filter('woocommerce_rest_prepare_shop_order_object', 'my_wc_rest_prepare_order', 10, 3);
-
